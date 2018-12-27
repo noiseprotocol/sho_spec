@@ -1,9 +1,5 @@
-# spectemplate
+# Stateful Hash Objects
 
-This directory contains a template for writing extension documents for the Noise Protocol Framework.
+Specification of a cryptographic API for working with hash functions.  
 
-Extensions are written using Pandoc-flavored Markdown.  The Makefile in this directory converts the Markdown to HTML and PDF format using pandoc and pandoc-citeproc.
-
-This template requires a `spectools` directory containing some additional pandoc input files, which is pointed to by the SPECTOOLS environment variable.
-
-
+Intended for use in Noise, but hopefully this is generally useful.
