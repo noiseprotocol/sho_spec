@@ -22,131 +22,288 @@
 <div id="TOC">
 <h2 class="toc">Table of Contents</h2>
 <ul>
-<li><a href="#introduction">1. Introduction</a></li>
-<li><a href="#overview">2. Overview</a></li>
-<li><a href="#sho-api">3. SHO API</a><ul>
-<li><a href="#sho-object-creation">3.1. SHO object creation</a></li>
-<li><a href="#sho-input-and-output">3.2. SHO input and output</a></li>
-<li><a href="#sho-function">3.3. SHO function</a></li>
+<li><a href="#introduction" id="toc-introduction">1.
+Introduction</a></li>
+<li><a href="#sho-api" id="toc-sho-api">3. SHO API</a>
+<ul>
+<li><a href="#sho-object-creation" id="toc-sho-object-creation">3.1. SHO
+object creation</a></li>
+<li><a href="#sho-input-and-output" id="toc-sho-input-and-output">3.2.
+SHO input and output</a></li>
+<li><a href="#sho-function" id="toc-sho-function">3.3. SHO
+function</a></li>
 </ul></li>
-<li><a href="#sho-with-encryption-shoe-api">4. SHO with encryption (SHOE) API</a></li>
-<li><a href="#sho-constructions">5. SHO constructions</a><ul>
-<li><a href="#generic-sho-constructions">5.1. Generic SHO constructions</a></li>
-<li><a href="#generic-construction-examples">5.2. Generic construction examples</a></li>
-<li><a href="#hkdf-construction">5.3. HKDF construction</a></li>
+<li><a href="#sho-with-encryption-shoe-api"
+id="toc-sho-with-encryption-shoe-api">4. SHO with encryption (SHOE)
+API</a></li>
+<li><a href="#sho-constructions" id="toc-sho-constructions">5. SHO
+constructions</a>
+<ul>
+<li><a href="#generic-sho-constructions"
+id="toc-generic-sho-constructions">5.1. Generic SHO
+constructions</a></li>
+<li><a href="#generic-construction-examples"
+id="toc-generic-construction-examples">5.2. Generic construction
+examples</a></li>
+<li><a href="#hkdf-construction" id="toc-hkdf-construction">5.3. HKDF
+construction</a></li>
 </ul></li>
-<li><a href="#shoe-constructions">6. SHOE constructions</a><ul>
-<li><a href="#strobe">6.1. STROBE</a></li>
+<li><a href="#shoe-constructions" id="toc-shoe-constructions">6. SHOE
+constructions</a>
+<ul>
+<li><a href="#strobe" id="toc-strobe">6.1. STROBE</a></li>
 </ul></li>
-<li><a href="#security-considerations">7. Security considerations</a></li>
-<li><a href="#rationales">8. Rationales</a></li>
-<li><a href="#ipr">9. IPR</a></li>
-<li><a href="#acknowledgements">10. Acknowledgements</a></li>
-<li><a href="#references">11. References</a></li>
+<li><a href="#security-considerations"
+id="toc-security-considerations">7. Security considerations</a></li>
+<li><a href="#rationales" id="toc-rationales">8. Rationales</a></li>
+<li><a href="#ipr" id="toc-ipr">9. IPR</a></li>
+<li><a href="#acknowledgements" id="toc-acknowledgements">10.
+Acknowledgements</a></li>
+<li><a href="#references" id="toc-references">11. References</a></li>
 </ul>
 </div>
 <h1 id="introduction">1. Introduction</h1>
-<p>This document defines the <strong>Stateful Hash Object (SHO)</strong> API. This is an API for working with hash functions that provides several useful features:</p>
+<p>This document defines the <strong>Stateful Hash Object (SHO)</strong>
+API. This is an API for working with hash functions that provides
+several useful features:</p>
 <ul>
-<li><p>&quot;Customization labels&quot; for domain-separation.</p></li>
+<li><p>“Customization labels” for domain-separation.</p></li>
 <li><p>Arbitrary-length (XOF-style) output.</p></li>
-<li><p>Immunity to &quot;length-extension&quot; of hash inputs (unlike functions such as SHA-256).</p></li>
-<li><p>&quot;Stateful hash objects&quot; which can &quot;absorb&quot; inputs incrementally, so can be used in streaming cases or protocols where inputs are absorbed at different stages.</p></li>
-<li><p>A &quot;ratcheting&quot; function for a stateful hash object which makes the object's internal state minimum-sized and a one-way function of all preceding inputs, for forward-secrecy and reducing storage size.</p></li>
-<li><p>An optional encryption capability which can be provided by a stateful hash object to efficiently encrypt some data while absorbing the ciphertext.</p></li>
+<li><p>Immunity to “length-extension” of hash inputs (unlike functions
+such as SHA-256).</p></li>
+<li><p>“Stateful hash objects” which can “absorb” inputs incrementally,
+so can be used in streaming cases or protocols where inputs are absorbed
+at different stages.</p></li>
+<li><p>A “ratcheting” function for a stateful hash object which makes
+the object’s internal state minimum-sized and a one-way function of all
+preceding inputs, for forward-secrecy and reducing storage
+size.</p></li>
+<li><p>An optional encryption capability which can be provided by a
+stateful hash object to efficiently encrypt some data while absorbing
+the ciphertext.</p></li>
 </ul>
-<p>This document also describes constructions which extend existing hash functions to support the SHO API.</p>
-<h1 id="overview">2. Overview</h1>
-<p>The SHO API is based on the notion of a <strong>Stateful Hash Object</strong> (or <strong>SHO object</strong>). A SHO object is <strong>Initialized</strong> with some <strong>customization label</strong>. The customization label provides domain separation so that if the same values are input to differently-customized SHO objects, independent outputs will be produced.</p>
-<p>The SHO object is then used to <strong>Absorb</strong> inputs. Eventually an output is <strong>Squeezed</strong> from the SHO object.</p>
-<p>SHO objects typically contain a small, fixed-size buffer plus some internal chaining variable. Absorbing input appends to the buffer, and calls some cryptographic function when the buffer is full. The cryptographic function mixes the buffered data into the chaining variable and then resets the buffer to empty.</p>
-<p>To provide the caller more control over this buffer, a <strong>Ratchet</strong> function can be called to force the SHO object to cryptographically process any buffered data so that its chaining variable becomes a one-way function of all preceding inputs, and the SHO object's state is reduced to its minimum size (i.e. with no buffered data).</p>
-<p>If the caller wishes to squeeze multiple outputs from a sequence of inputs at different points in time, the caller can <strong>Clone</strong> the SHO object and squeeze output from the clones.</p>
-<p>While SHO objects provide several features targeted at stateful hashing (where a single SHO object is used to absorb inputs over a period of time), SHO features like customization labels, immunity to length-extension, and arbitrary output lengths are useful even if exposed via a single-shot (non-stateful) API.</p>
+<p>This document also describes constructions which extend existing hash
+functions to support the SHO API.</p>
+<p>#2. Overview</p>
+<p>The SHO API is based on the notion of a <strong>Stateful Hash
+Object</strong> (or <strong>SHO object</strong>). A SHO object is
+<strong>Initialized</strong> with some <strong>customization
+label</strong>. The customization label provides domain separation so
+that if the same values are input to differently-customized SHO objects,
+independent outputs will be produced.</p>
+<p>The SHO object is then used to <strong>Absorb</strong> inputs.
+Eventually an output is <strong>Squeezed</strong> from the SHO
+object.</p>
+<p>SHO objects typically contain a small, fixed-size buffer plus some
+internal chaining variable. Absorbing input appends to the buffer, and
+calls some cryptographic function when the buffer is full. The
+cryptographic function mixes the buffered data into the chaining
+variable and then resets the buffer to empty.</p>
+<p>To provide the caller more control over this buffer, a
+<strong>Ratchet</strong> function can be called to force the SHO object
+to cryptographically process any buffered data so that its chaining
+variable becomes a one-way function of all preceding inputs, and the SHO
+object’s state is reduced to its minimum size (i.e. with no buffered
+data).</p>
+<p>If the caller wishes to squeeze multiple outputs from a sequence of
+inputs at different points in time, the caller can
+<strong>Clone</strong> the SHO object and squeeze output from the
+clones.</p>
+<p>While SHO objects provide several features targeted at stateful
+hashing (where a single SHO object is used to absorb inputs over a
+period of time), SHO features like customization labels, immunity to
+length-extension, and arbitrary output lengths are useful even if
+exposed via a single-shot (non-stateful) API.</p>
 <h1 id="sho-api">3. SHO API</h1>
 <h2 id="sho-object-creation">3.1. SHO object creation</h2>
-<p>A SHO API is capable of creating new SHO objects based on either a <strong>customization label</strong> (which may be an empty byte sequence) or by cloning an existing SHO object:</p>
+<p>A SHO API is capable of creating new SHO objects based on either a
+<strong>customization label</strong> (which may be an empty byte
+sequence) or by cloning an existing SHO object:</p>
 <ul>
-<li><p><strong><code>Initialize(customization_label: bytes)</code></strong>: Creates and returns a new SHO object based on the <code>customization_label</code> byte sequence, which must be from 0-65535 bytes in length. Initialization with a non-empty <code>customization_label</code> is recommended (but not required) to leave the new SHO object in a minimum-sized state (e.g. by calling <code>Ratchet</code> internally), to aid in storing precalculated SHO objects.</p></li>
-<li><p><strong><code>Clone()</code></strong>: This function is a method which is called &quot;on&quot; some pre-existing SHO object. The pre-existing object's state is copied into a new SHO object, which is returned.</p></li>
+<li><p><strong><code>Initialize(customization_label: bytes)</code></strong>:
+Creates and returns a new SHO object based on the
+<code>customization_label</code> byte sequence, which must be from
+0-65535 bytes in length. Initialization with a non-empty
+<code>customization_label</code> is recommended (but not required) to
+leave the new SHO object in a minimum-sized state (e.g. by calling
+<code>Ratchet</code> internally), to aid in storing precalculated SHO
+objects.</p></li>
+<li><p><strong><code>Clone()</code></strong>: This function is a method
+which is called “on” some pre-existing SHO object. The pre-existing
+object’s state is copied into a new SHO object, which is
+returned.</p></li>
 </ul>
 <h2 id="sho-input-and-output">3.2. SHO input and output</h2>
-<p>In addition to its <code>Clone</code> method, a SHO object supports <code>Absorb</code>, <code>Squeeze</code>, and <code>Ratchet</code> methods:</p>
+<p>In addition to its <code>Clone</code> method, a SHO object supports
+<code>Absorb</code>, <code>Squeeze</code>, and <code>Ratchet</code>
+methods:</p>
 <ul>
-<li><p><strong><code>Absorb(input: bytes)</code></strong>: This method passes input into the SHO object. When output is eventually squeezed from the SHO object, that output will be a hash of the concatenation of all absorbed inputs. Note that inputs are considered to be concatenated without separators, i.e. <code>Absorb(&quot;abc&quot;)</code> is the same as <code>Absorb(&quot;ab&quot;)</code> followed by <code>Absorb(&quot;c&quot;)</code>.</p></li>
-<li><p><strong><code>Squeeze(output_length: uint64)</code></strong>: This method returns a byte sequence of length <code>output_length</code> which is a hash of the customization label and all absorbed input. The requested output is considered to be a prefix of some infinite-length output, so requesting a longer <code>output_length</code> will give the same initial bytes as requesting a shorter <code>output_length</code>. After this function is called on a SHO object the object is consumed and can't be used any further.</p></li>
-<li><p><strong><code>Ratchet()</code></strong>: This method causes the SHO object to update its state to be a one-way cryptographic function of all preceding inputs, and to be minimum-sized (i.e. any buffered data which has not been hashed yet will be hashed and then cleared). Calling <code>Ratchet</code> will affect the eventual results from <code>Squeeze</code> in one of the following three ways (the exact effect will be determined by the current state of the SHO object).</p>
+<li><p><strong><code>Absorb(input: bytes)</code></strong>: This method
+passes input into the SHO object. When output is eventually squeezed
+from the SHO object, that output will be a hash of the concatenation of
+all absorbed inputs. Note that inputs are considered to be concatenated
+without separators, i.e. <code>Absorb("abc")</code> is the same as
+<code>Absorb("ab")</code> followed by <code>Absorb("c")</code>.</p></li>
+<li><p><strong><code>Squeeze(output_length: uint64)</code></strong>:
+This method returns a byte sequence of length <code>output_length</code>
+which is a hash of the customization label and all absorbed input. The
+requested output is considered to be a prefix of some infinite-length
+output, so requesting a longer <code>output_length</code> will give the
+same initial bytes as requesting a shorter <code>output_length</code>.
+After this function is called on a SHO object the object is consumed and
+can’t be used any further.</p></li>
+<li><p><strong><code>Ratchet()</code></strong>: This method causes the
+SHO object to update its state to be a one-way cryptographic function of
+all preceding inputs, and to be minimum-sized (i.e. any buffered data
+which has not been hashed yet will be hashed and then cleared). Calling
+<code>Ratchet</code> will affect the eventual results from
+<code>Squeeze</code> in one of the following three ways (the exact
+effect will be determined by the current state of the SHO object).</p>
 <ul>
-<li><p>The <code>Ratchet</code> call doesn't modify the object at all (if it is already in a minimum-sized state)</p></li>
-<li><p>The <code>Ratchet</code> call is equivalent to an <code>Absorb</code> call, e.g. an <code>Absorb</code> call that absorbs some padding bytes to fill out the next hash block.</p></li>
-<li><p>The <code>Ratchet</code> call is equivalent to an <code>Absorb</code> call that absorbs a special symbol that cannot be passed into <code>Absorb</code> directly but which is hashed into the eventual output.</p></li>
+<li><p>The <code>Ratchet</code> call doesn’t modify the object at all
+(if it is already in a minimum-sized state)</p></li>
+<li><p>The <code>Ratchet</code> call is equivalent to an
+<code>Absorb</code> call, e.g. an <code>Absorb</code> call that absorbs
+some padding bytes to fill out the next hash block.</p></li>
+<li><p>The <code>Ratchet</code> call is equivalent to an
+<code>Absorb</code> call that absorbs a special symbol that cannot be
+passed into <code>Absorb</code> directly but which is hashed into the
+eventual output.</p></li>
 </ul></li>
 </ul>
 <h2 id="sho-function">3.3. SHO function</h2>
-<p>A SHO API should also provide a more traditional, non-stateful hash function. For convenience, we simply call this the <strong>SHO function</strong> (as distinct from a SHO object), or call this function by the name of the SHO algorithm (e.g. the SHO/SHA256 function).</p>
+<p>A SHO API should also provide a more traditional, non-stateful hash
+function. For convenience, we simply call this the <strong>SHO
+function</strong> (as distinct from a SHO object), or call this function
+by the name of the SHO algorithm (e.g. the SHO/SHA256 function).</p>
 <ul>
-<li><strong><code>SHO(customization_label: bytes, input: bytes, output_length: uint64)</code></strong>: This is shorthand for initializing a new SHO object with the customization label, absorbing the <code>input</code>, and then squeezing <code>output_length</code> bytes of output. To simplify the API, the <code>customization_label</code> field defaults to the empty string, and the <code>output_length</code> field defaults to the collision-resistant output length for the underlying hash function (e.g. 32 bytes for SHA-256, SHAKE128, or BLAKE2s; 64 bytes for SHA-512, SHAKE256, or BLAKE2b).</li>
+<li><strong><code>SHO(customization_label: bytes, input: bytes, output_length: uint64)</code></strong>:
+This is shorthand for initializing a new SHO object with the
+customization label, absorbing the <code>input</code>, and then
+squeezing <code>output_length</code> bytes of output. To simplify the
+API, the <code>customization_label</code> field defaults to the empty
+string, and the <code>output_length</code> field defaults to the
+collision-resistant output length for the underlying hash function
+(e.g. 32 bytes for SHA-256, SHAKE128, or BLAKE2s; 64 bytes for SHA-512,
+SHAKE256, or BLAKE2b).</li>
 </ul>
-<h1 id="sho-with-encryption-shoe-api">4. SHO with encryption (SHOE) API</h1>
-<p>An extended form of SHO object is a <strong>Stateful Hash Object with Encryption</strong>, or <strong>SHOE</strong> object. A SHOE object is a SHO object which additionally supports <code>Encrypt</code> and <code>Decrypt</code> functions.</p>
-<p>These functions effectively derive an encryption key from the SHOE object's state, use it to perform authenticated-encryption on some message, and then absorb the ciphertext into the SHOE object. This functionality is useful in protocols such as Noise where handshake messages are being encrypted and hashed simultaneously. Providing these functions via a special <code>SHOE</code> object allows low-level optimizations, such as combining the authentication and hashing calculations, or using a sponge/duplex authenticated-encryption mode.</p>
+<h1 id="sho-with-encryption-shoe-api">4. SHO with encryption (SHOE)
+API</h1>
+<p>An extended form of SHO object is a <strong>Stateful Hash Object with
+Encryption</strong>, or <strong>SHOE</strong> object. A SHOE object is a
+SHO object which additionally supports <code>Encrypt</code> and
+<code>Decrypt</code> functions.</p>
+<p>These functions effectively derive an encryption key from the SHOE
+object’s state, use it to perform authenticated-encryption on some
+message, and then absorb the ciphertext into the SHOE object. This
+functionality is useful in protocols such as Noise where handshake
+messages are being encrypted and hashed simultaneously. Providing these
+functions via a special <code>SHOE</code> object allows low-level
+optimizations, such as combining the authentication and hashing
+calculations, or using a sponge/duplex authenticated-encryption
+mode.</p>
 <ul>
-<li><p><strong><code>Encrypt(plaintext: bytes)</code></strong>: This method returns a ciphertext byte sequence of length equal to the plaintext length plus 16. The ciphertext is an authenticated encryption of the plaintext. This function should provide equivalent functionality to first cloning the SHOE object, then absorbing some special symbol into the clone which cannot be directly passed to <code>Absorb</code>, then squeezing a key from the clone, then using the key to perform authenticated-encryption on the plaintext, then absorbing the ciphertext into the original SHOE object.</p></li>
-<li><p><strong><code>Decrypt(ciphertext: bytes)</code></strong>: This method returns a plaintext byte sequence of length equal to the ciphertext length minus 16, or a decryption error. The plaintext is an authenticated decryption of a ciphertext that was encrypted using a SHOE object in the same state.</p></li>
+<li><p><strong><code>Encrypt(plaintext: bytes)</code></strong>: This
+method returns a ciphertext byte sequence of length equal to the
+plaintext length plus 16. The ciphertext is an authenticated encryption
+of the plaintext. This function should provide equivalent functionality
+to first cloning the SHOE object, then absorbing some special symbol
+into the clone which cannot be directly passed to <code>Absorb</code>,
+then squeezing a key from the clone, then using the key to perform
+authenticated-encryption on the plaintext, then absorbing the ciphertext
+into the original SHOE object.</p></li>
+<li><p><strong><code>Decrypt(ciphertext: bytes)</code></strong>: This
+method returns a plaintext byte sequence of length equal to the
+ciphertext length minus 16, or a decryption error. The plaintext is an
+authenticated decryption of a ciphertext that was encrypted using a SHOE
+object in the same state.</p></li>
 </ul>
 <h1 id="sho-constructions">5. SHO constructions</h1>
 <h2 id="generic-sho-constructions">5.1. Generic SHO constructions</h2>
-<p>To build SHO variants of existing hash function we place these functions in one of four categories, based on whether or not they are an extensible output function (XOF), and whether or not their underlying cryptographic function is a sponge.</p>
-<p>For example, we classify functions in the SHAKE, SHA2, and BLAKE2 families as follows:</p>
+<p>To build SHO variants of existing hash function we place these
+functions in one of four categories, based on whether or not they are an
+extensible output function (XOF), and whether or not their underlying
+cryptographic function is a sponge.</p>
+<p>For example, we classify functions in the SHAKE, SHA2, and BLAKE2
+families as follows:</p>
 <table style="width:92%;">
 <colgroup>
-<col width="26%" />
-<col width="34%" />
-<col width="30%" />
+<col style="width: 26%" />
+<col style="width: 34%" />
+<col style="width: 30%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th></th>
 <th>XOF</th>
 <th>Not XOF</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
-<td><p>Sponge</p></td>
-<td><p>SHAKE128, SHAKE256</p></td>
-<td><p>(SHA-3)</p></td>
+<tr>
+<td>Sponge</td>
+<td>SHAKE128, SHAKE256</td>
+<td>(SHA-3)</td>
 </tr>
-<tr class="even">
+<tr>
 <td></td>
 <td></td>
 <td></td>
 </tr>
-<tr class="odd">
-<td><p>Not Sponge</p></td>
-<td><p>(BLAKE2X)</p></td>
-<td><p>SHA256, SHA512 BLAKE2s, BLAKE2b</p></td>
+<tr>
+<td>Not Sponge</td>
+<td>(BLAKE2X)</td>
+<td>SHA256, SHA512 BLAKE2s, BLAKE2b</td>
 </tr>
 </tbody>
 </table>
-<p>SHA-3 and BLAKE2X are shown only as examples of the classification scheme, but for the other functions we will define SHO variants, named as:</p>
+<p>SHA-3 and BLAKE2X are shown only as examples of the classification
+scheme, but for the other functions we will define SHO variants, named
+as:</p>
 <ul>
 <li>SHO/SHAKE128 and SHO/SHAKE256</li>
 <li>SHO/SHA256 and SHO/SHA512</li>
 <li>SHO/BLAKE2s and SHO/BLAKE2b</li>
 </ul>
-<p>These SHOs are defined using the following generic construction, which can be applied to other hash functions based on the above categorization.</p>
-<p>The generic construction is described with Python-like pseudocode, assuming a SHO object where the following functions are defined:</p>
+<p>These SHOs are defined using the following generic construction,
+which can be applied to other hash functions based on the above
+categorization.</p>
+<p>The generic construction is described with Python-like pseudocode,
+assuming a SHO object where the following functions are defined:</p>
 <ul>
-<li><p>The <code>update()</code>, and <code>finalize()</code> functions call a stateful API for the underlying hash function. The <code>update()</code> function appends to the input byte sequence, and the <code>finalize()</code> function produces the final hash or XOF output. We assume the <code>update()</code> function is appending inputs to a buffer of length <code>BLOCKLEN</code> (for a sponge, <code>BLOCKLEN</code> is the size of the &quot;rate&quot;), and whenever the buffer is full the inputs are immediately mixed into an internal chaining variable and the buffer is cleared. We assume the <code>finalize()</code> function produces <code>HASHLEN</code> bytes of output (for an XOF, <code>HASHLEN</code> is the recommended output length to provide collision-resistance).</p></li>
-<li><p>The <code>buffered_data_len()</code> function returns the number of bytes the hash function has buffered since last invoking the underlying compression function (or for a sponge, how many bytes have been written into the sponge's rate since last invoking the underlying permutation). This value will be from 0 to <code>BLOCKLEN-1</code>.</p></li>
-<li><p>The <code>zeroize_rate()</code> function can only be called if the underlying hash is a sponge, in which case it erases (sets to zero) the contents of the sponge's &quot;rate&quot;. This requires low-level access to the sponge which is not typically provided by a SHAKE API.</p></li>
-<li><p>The <code>is_xof()</code> and <code>is_sponge()</code> functions return True or False depending on the category of the existing function.</p></li>
-<li><p>The <code>zeros(n)</code> function returns a byte sequence of length <code>n</code> filled with zeros.</p></li>
-<li><p>The <code>new_byte_sequence()</code> function returns an empty byte sequence, and the <code>new_hash()</code> function returns a new hash object for the underlying hash function.</p></li>
-<li><p>The <code>uint16()</code> and <code>uint64()</code> functions encode an unsigned integer into a big-endian byte sequences.</p></li>
+<li><p>The <code>update()</code>, and <code>finalize()</code> functions
+call a stateful API for the underlying hash function. The
+<code>update()</code> function appends to the input byte sequence, and
+the <code>finalize()</code> function produces the final hash or XOF
+output. We assume the <code>update()</code> function is appending inputs
+to a buffer of length <code>BLOCKLEN</code> (for a sponge,
+<code>BLOCKLEN</code> is the size of the “rate”), and whenever the
+buffer is full the inputs are immediately mixed into an internal
+chaining variable and the buffer is cleared. We assume the
+<code>finalize()</code> function produces <code>HASHLEN</code> bytes of
+output (for an XOF, <code>HASHLEN</code> is the recommended output
+length to provide collision-resistance).</p></li>
+<li><p>The <code>buffered_data_len()</code> function returns the number
+of bytes the hash function has buffered since last invoking the
+underlying compression function (or for a sponge, how many bytes have
+been written into the sponge’s rate since last invoking the underlying
+permutation). This value will be from 0 to
+<code>BLOCKLEN-1</code>.</p></li>
+<li><p>The <code>zeroize_rate()</code> function can only be called if
+the underlying hash is a sponge, in which case it erases (sets to zero)
+the contents of the sponge’s “rate”. This requires low-level access to
+the sponge which is not typically provided by a SHAKE API.</p></li>
+<li><p>The <code>is_xof()</code> and <code>is_sponge()</code> functions
+return True or False depending on the category of the existing
+function.</p></li>
+<li><p>The <code>zeros(n)</code> function returns a byte sequence of
+length <code>n</code> filled with zeros.</p></li>
+<li><p>The <code>new_byte_sequence()</code> function returns an empty
+byte sequence, and the <code>new_hash()</code> function returns a new
+hash object for the underlying hash function.</p></li>
+<li><p>The <code>uint16()</code> and <code>uint64()</code> functions
+encode an unsigned integer into a big-endian byte sequences.</p></li>
 </ul>
-
 <p><strong>Generic SHO construction pseudocode:</strong></p>
 <pre><code>def Init(self, customization_label):
     if not self.is_xof():
@@ -177,9 +334,14 @@ def Squeeze(self, output_length):
         return output[ : output_length]  # truncate to output_length
     else:
         return self.finalize(output_length)</code></pre>
-
-<h2 id="generic-construction-examples">5.2. Generic construction examples</h2>
-<p>The simplest form of the above constructions would result from calling the single-shot <code>SHO</code> function with default (empty) <code>customization_label</code> and default <code>output_length</code>. This would result in the following output, for each of the listed SHO variants, where <code>||</code> indicates concatenation of byte sequences.</p>
+<h2 id="generic-construction-examples">5.2. Generic construction
+examples</h2>
+<p>The simplest form of the above constructions would result from
+calling the single-shot <code>SHO</code> function with default (empty)
+<code>customization_label</code> and default <code>output_length</code>.
+This would result in the following output, for each of the listed SHO
+variants, where <code>||</code> indicates concatenation of byte
+sequences.</p>
 <p><strong>SHO/SHA256</strong></p>
 <ul>
 <li>SHA256(SHA256(zeros(66) || input) || zeros(8))</li>
@@ -204,26 +366,50 @@ def Squeeze(self, output_length):
 <ul>
 <li>SHAKE256(zeros(2) || input, 64)</li>
 </ul>
-<p>With non-empty <code>customization_label</code> the last two bytes of the initial <code>zeros()</code> field would be replaced by a <code>uint16(len(customization_label))</code> field, followed by the <code>customization_label</code>, then followed by zero-padding to fill out the remainder of the hash block. For the SHAKE variants, <code>zeroize_rate()</code> would have to be called after absorbing a non-empty <code>customization_label</code>, so the non-empty <code>customization_label</code> case could no longer be expressed as a simple call to SHAKE128 or SHAKE256.</p>
-<p>With different output lengths, the <code>zeros(8)</code> field in the non-XOF functions would be replaced with a 64 bit counter which increments 0,1,... until sufficient output is produced.</p>
-
+<p>With non-empty <code>customization_label</code> the last two bytes of
+the initial <code>zeros()</code> field would be replaced by a
+<code>uint16(len(customization_label))</code> field, followed by the
+<code>customization_label</code>, then followed by zero-padding to fill
+out the remainder of the hash block. For the SHAKE variants,
+<code>zeroize_rate()</code> would have to be called after absorbing a
+non-empty <code>customization_label</code>, so the non-empty
+<code>customization_label</code> case could no longer be expressed as a
+simple call to SHAKE128 or SHAKE256.</p>
+<p>With different output lengths, the <code>zeros(8)</code> field in the
+non-XOF functions would be replaced with a 64 bit counter which
+increments 0,1,… until sufficient output is produced.</p>
 <h2 id="hkdf-construction">5.3. HKDF construction</h2>
-<p>HKDF <span class="citation">[<a href="#ref-hkdfpaper">1</a>], [<a href="#ref-rfc5869">2</a>]</span> (with some underlying hash function) can be used with the SHO API as follows:</p>
+<p>HKDF <span class="citation" data-cites="hkdfpaper rfc5869"><a
+href="#ref-hkdfpaper" role="doc-biblioref">[1]</a>, <a
+href="#ref-rfc5869" role="doc-biblioref">[2]</a></span> (with some
+underlying hash function) can be used with the SHO API as follows:</p>
 <ul>
-<li><p>HKDF's <code>salt</code> parameter is used for the <code>customization_label</code>.</p></li>
-<li><p>HKDF's <code>ikm</code> parameter is used for the absorbed input.</p></li>
-<li><p>HKDF's <code>info</code> parameter is set to a zero-length byte sequence.</p></li>
-<li><p>HKDF's <code>output_length</code> is set to the <code>output_length</code> from <code>Squeeze</code>.</p></li>
+<li><p>HKDF’s <code>salt</code> parameter is used for the
+<code>customization_label</code>.</p></li>
+<li><p>HKDF’s <code>ikm</code> parameter is used for the absorbed
+input.</p></li>
+<li><p>HKDF’s <code>info</code> parameter is set to a zero-length byte
+sequence.</p></li>
+<li><p>HKDF’s <code>output_length</code> is set to the
+<code>output_length</code> from <code>Squeeze</code>.</p></li>
 </ul>
-<p>The <code>Absorb</code> and <code>Ratchet</code> functions are the same as if the underlying hash function was used with the generic SHO construction.</p>
-<p>As an example, calling HKDF-SHA256 as a single-shot <code>SHO</code> function with default <code>customization_label</code> and <code>output_length</code> would result in the following output:</p>
+<p>The <code>Absorb</code> and <code>Ratchet</code> functions are the
+same as if the underlying hash function was used with the generic SHO
+construction.</p>
+<p>As an example, calling HKDF-SHA256 as a single-shot <code>SHO</code>
+function with default <code>customization_label</code> and
+<code>output_length</code> would result in the following output:</p>
 <ul>
-<li>HKDF-SHA256(salt=customization_label, ikm=input, info=&quot;&quot;, output_length=32)</li>
+<li>HKDF-SHA256(salt=customization_label, ikm=input, info=““,
+output_length=32)</li>
 </ul>
 <h1 id="shoe-constructions">6. SHOE constructions</h1>
 <h2 id="strobe">6.1. STROBE</h2>
-<p>STROBE <span class="citation">[<a href="#ref-strobe">3</a>]</span> can be used to implement the SHOE API using the following Python-like pseudocode, where the STROBE operations (AD, meta-AD, RATCHET, send_MAC/recv_MAC, send_ENC/recv_ENV) are methods on the SHOE object.</p>
-
+<p>STROBE <span class="citation" data-cites="strobe"><a
+href="#ref-strobe" role="doc-biblioref">[3]</a></span> can be used to
+implement the SHOE API using the following Python-like pseudocode, where
+the STROBE operations (AD, meta-AD, RATCHET, send_MAC/recv_MAC,
+send_ENC/recv_ENV) are methods on the SHOE object.</p>
 <p><strong>SHOE/STROBEv1.0.2 pseudocode:</strong></p>
 <pre><code>def Init(self, customization_label):
     self.meta-AD(customization_label)
@@ -249,30 +435,59 @@ def Decrypt(self, ciphertext):
         raise Error(&quot;decryption failure)
     return plaintext
 </code></pre>
-
 <h1 id="security-considerations">7. Security considerations</h1>
-<p>The constructions here are all new and should not be used until more analysis has been done.</p>
+<p>The constructions here are all new and should not be used until more
+analysis has been done.</p>
 <h1 id="rationales">8. Rationales</h1>
-<p>The generic SHO construction uses nested hashing with a prepended zero block for the innner hash. This construction was analyzed in <span class="citation">[<a href="#ref-mdrevisited">4</a>]</span> (where it was somewhat confusingly called the &quot;HMAC construction&quot;, though differing from the more widely known HMAC function).</p>
+<p>The generic SHO construction uses nested hashing with a prepended
+zero block for the innner hash. This construction was analyzed in <span
+class="citation" data-cites="mdrevisited"><a href="#ref-mdrevisited"
+role="doc-biblioref">[4]</a></span> (where it was somewhat confusingly
+called the “HMAC construction”, though differing from the more widely
+known HMAC function).</p>
 <h1 id="ipr">9. IPR</h1>
 <p>This document is hereby placed in the public domain.</p>
 <h1 id="acknowledgements">10. Acknowledgements</h1>
-<p>This proposal resulted from extensive discussion with Gilles van Assche about stateful hashing, and was also inspired by Mike Hamburg's STROBE, and discussions with Mike.</p>
-<p>Samuel Neves proposed the nested-hashing construction from <span class="citation">[<a href="#ref-mdrevisited">4</a>]</span>. Peter Schwabe proposed the importance of domain-separation and explicit customization labels.</p>
-<p>Discussions with Henry de Valence regarding his Merlin proposal, and with David Wong regarding his Disco proposal, were also helpful, as was feedback from Paul Rösler.</p>
-<h1 id="references" class="unnumbered">11. References</h1>
-<div id="refs" class="references">
-<div id="ref-hkdfpaper">
-<p>[1] H. Krawczyk, “‘Cryptographic extraction and key derivation: The hkdf scheme’.” Cryptology ePrint Archive, Report 2010/264, 2010. <a href="http://eprint.iacr.org/2010/264" class="uri">http://eprint.iacr.org/2010/264</a></p>
+<p>This proposal resulted from extensive discussion with Gilles van
+Assche about stateful hashing, and was also inspired by Mike Hamburg’s
+STROBE, and discussions with Mike.</p>
+<p>Samuel Neves proposed the nested-hashing construction from <span
+class="citation" data-cites="mdrevisited"><a href="#ref-mdrevisited"
+role="doc-biblioref">[4]</a></span>. Peter Schwabe proposed the
+importance of domain-separation and explicit customization labels.</p>
+<p>Discussions with Henry de Valence regarding his Merlin proposal, and
+with David Wong regarding his Disco proposal, were also helpful, as was
+feedback from Paul Rösler.</p>
+<h1 class="unnumbered" id="references">11. References</h1>
+<div id="refs" class="references csl-bib-body" data-entry-spacing="0"
+role="list">
+<div id="ref-hkdfpaper" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[1] </div><div class="csl-right-inline">H.
+Krawczyk, <span>“"Cryptographic extraction and key derivation: The HKDF
+scheme".”</span> Cryptology ePrint Archive, Report 2010/264, 2010. <a
+href="http://eprint.iacr.org/2010/264">http://eprint.iacr.org/2010/264</a></div>
 </div>
-<div id="ref-rfc5869">
-<p>[2] H. Krawczyk and P. Eronen, “HMAC-based Extract-and-Expand Key Derivation Function (HKDF).” Internet Engineering Task Force; RFC 5869 (Informational); IETF, May-2010. <a href="http://www.ietf.org/rfc/rfc5869.txt" class="uri">http://www.ietf.org/rfc/rfc5869.txt</a></p>
+<div id="ref-rfc5869" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[2] </div><div class="csl-right-inline">H.
+Krawczyk and P. Eronen, <span>“<span class="nocase">HMAC-based
+Extract-and-Expand Key Derivation Function (HKDF)</span>.”</span>
+Internet Engineering Task Force; RFC 5869 (Informational); IETF,
+May-2010. <a
+href="http://www.ietf.org/rfc/rfc5869.txt">http://www.ietf.org/rfc/rfc5869.txt</a></div>
 </div>
-<div id="ref-strobe">
-<p>[3] Mike Hamburg, “The STROBE protocol framework.” Cryptology ePrint Archive, Report 2017/003, 2017. <a href="http://eprint.iacr.org/2017/003" class="uri">http://eprint.iacr.org/2017/003</a></p>
+<div id="ref-strobe" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[3] </div><div
+class="csl-right-inline">Mike Hamburg, <span>“<span class="nocase">The
+STROBE protocol framework</span>.”</span> Cryptology ePrint Archive,
+Report 2017/003, 2017. <a
+href="http://eprint.iacr.org/2017/003">http://eprint.iacr.org/2017/003</a></div>
 </div>
-<div id="ref-mdrevisited">
-<p>[4] J.-S. Coron, Y. Dodis, C. Malinaud, and P. Puniya, “Merkle-damgård revisited: How to construct a hash function,” in Proceedings of the 25th annual international conference on advances in cryptology, 2005, pp. 430–448. <a href="https://cs.nyu.edu/~dodis/ps/merkle.pdf" class="uri">https://cs.nyu.edu/~dodis/ps/merkle.pdf</a></p>
+<div id="ref-mdrevisited" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[4] </div><div
+class="csl-right-inline">J.-S. Coron, Y. Dodis, C. Malinaud, and P.
+Puniya, <span>“Merkle-damg<span>å</span>rd revisited: How to construct a
+hash function,”</span> in Advances in cryptology – CRYPTO 2005, 2005,
+pp. 430–448. </div>
 </div>
 </div>
 </body>

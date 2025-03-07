@@ -19,7 +19,7 @@ output/$(SPECNAME).html: $(SPECNAME).md $(PANDOC)/template_pandoc.html $(PANDOC)
 		--template $(PANDOC)/template_pandoc.html \
 		--metadata=pdfn:$(SPECNAME).pdf \
 		--css=spec_markdown.css \
-		--filter pandoc-citeproc \
+		--citeproc \
 		--bibliography=$(CITEPROC)/general.bib \
 		--bibliography=my.bib \
 		--csl=$(CITEPROC)/ieee-with-url.csl \
@@ -29,8 +29,7 @@ output/$(SPECNAME).html: $(SPECNAME).md $(PANDOC)/template_pandoc.html $(PANDOC)
 output/$(SPECNAME).pdf: $(SPECNAME).md $(PANDOC)/template_pandoc.latex $(CITEPROC)/ieee-with-url.csl $(CITEPROC)/general.bib my.bib
 	pandoc $(SPECNAME).md --standalone --toc \
 	        --from markdown\
-		--template $(PANDOC)/template_pandoc.latex \
-		--filter pandoc-citeproc \
+		--citeproc \
 		--bibliography=$(CITEPROC)/general.bib \
 		--bibliography=my.bib \
 		--csl=$(CITEPROC)/ieee-with-url.csl \

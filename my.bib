@@ -1,3 +1,20 @@
 % This is an empty bibtex file, you can add bibtex entries for your references.
 % Use the same format as the spectools/pandoc-citeproc/general.bib file.
 % The build process will consult both files when looking for references.
+
+@InProceedings{mdrevisited,
+author="Coron, Jean-S{\'e}bastien
+and Dodis, Yevgeniy
+and Malinaud, C{\'e}cile
+and Puniya, Prashant",
+editor="Shoup, Victor",
+title="Merkle-Damg{\aa}rd Revisited: How to Construct a Hash Function",
+booktitle="Advances in Cryptology -- CRYPTO 2005",
+year="2005",
+publisher="Springer Berlin Heidelberg",
+address="Berlin, Heidelberg",
+pages="430--448",
+abstract="The most common way of constructing a hash function (e.g., SHA-1) is to iterate a compression function on the input message. The compression function is usually designed from scratch or made out of a block-cipher. In this paper, we introduce a new security notion for hash-functions, stronger than collision-resistance. Under this notion, the arbitrary length hash function H must behave as a random oracle when the fixed-length building block is viewed as a random oracle or an ideal block-cipher. The key property is that if a particular construction meets this definition, then any cryptosystem proven secure assuming H is a random oracle remains secure if one plugs in this construction (still assuming that the underlying fixed-length primitive is ideal). In this paper, we show that the current design principle behind hash functions such as SHA-1 and MD5 --- the (strengthened) Merkle-Damg{\aa}rd transformation --- does not satisfy this security notion. We provide several constructions that provably satisfy this notion; those new constructions introduce minimal changes to the plain Merkle-Damg{\aa}rd construction and are easily implementable in practice.",
+isbn="978-3-540-31870-5"
+}
+
